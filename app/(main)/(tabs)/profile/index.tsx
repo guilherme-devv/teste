@@ -1,5 +1,5 @@
-import { Shield, Mail, CheckCircle, LogOut, ChevronRight } from "lucide-react-native";
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert } from "react-native";
+import { Shield, Mail, CheckCircle, LogOut, ChevronRight, Award, MapPin, TrendingUp, Sparkles } from "lucide-react-native";
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
 
 import { useAuth } from "@/contexts/auth-context";
 import { trpc } from "@/lib/trpc";
@@ -7,6 +7,9 @@ import { trpc } from "@/lib/trpc";
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
   const logoutMutation = trpc.auth.logout.useMutation();
+  const rewardsQuery = trpc.rewards.getMyRewards.useQuery();
+  const servicesQuery = trpc.localServices.getServices.useQuery();
+  const seedServicesMutation = trpc.localServices.seedServices.useMutation();
 
   const handleLogout = () => {
     Alert.alert(
@@ -48,6 +51,46 @@ export default function ProfileScreen() {
         <Text style={styles.email}>{user?.email}</Text>
       </View>
 
+      {rewardsQuery.isLoading ? (
+        <View style={styles.loadingCard}>
+          <ActivityIndicator size="small" color="#3b82f6" />
+        </View>
+      ) : (
+        <View style={styles.rewardsCard}>
+          <View style={styles.rewardsHeader}>
+            <Award size={24} color="#f59e0b" />
+            <View style={styles.rewardsHeaderText}>
+              <Text style={styles.rewardsTitle}>Nível {rewardsQuery.data?.level || 1}</Text>
+              <Text style={styles.rewardsSubtitle}>{rewardsQuery.data?.points || 0} pontos</Text>
+            </View>
+            <TrendingUp size={20} color="#10b981" />
+          </View>
+          <View style={styles.progressBar}>
+            <View 
+              style={[styles.progressFill, { width: `${rewardsQuery.data?.progressToNextLevel || 0}%` }]} 
+            />
+          </View>
+          <Text style={styles.progressText}>
+            {rewardsQuery.data?.nextLevelPoints ? 
+              `${rewardsQuery.data.nextLevelPoints - (rewardsQuery.data.points || 0)} pontos para o próximo nível` : 
+              "Continue participando para ganhar pontos!"}
+          </Text>
+          {rewardsQuery.data?.availableBadges && rewardsQuery.data.availableBadges.filter(b => b.earned).length > 0 && (
+            <View style={styles.badgesContainer}>
+              <Text style={styles.badgesTitle}>Conquistas:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.badgesList}>
+                {rewardsQuery.data.availableBadges.filter(b => b.earned).map((badge) => (
+                  <View key={badge.id} style={styles.badge}>
+                    <Sparkles size={16} color="#f59e0b" />
+                    <Text style={styles.badgeName}>{badge.name}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
+      )}
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Informações</Text>
         
@@ -80,6 +123,30 @@ export default function ProfileScreen() {
             <CheckCircle size={20} color="#10b981" />
           </View>
         </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Serviços Locais</Text>
+        <TouchableOpacity 
+          style={styles.servicesCard} 
+          activeOpacity={0.7}
+          onPress={() => {
+            if (servicesQuery.data?.services.length === 0) {
+              seedServicesMutation.mutate();
+            }
+          }}
+        >
+          <View style={styles.servicesIcon}>
+            <MapPin size={24} color="#3b82f6" />
+          </View>
+          <View style={styles.servicesContent}>
+            <Text style={styles.servicesTitle}>Encontre Serviços</Text>
+            <Text style={styles.servicesSubtitle}>
+              {servicesQuery.data?.services.length || 0} serviços disponíveis na sua região
+            </Text>
+          </View>
+          <ChevronRight size={20} color="#94a3b8" />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
@@ -264,5 +331,128 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#ef4444",
+  },
+  loadingCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center" as const,
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  rewardsCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  rewardsHeader: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 12,
+    marginBottom: 16,
+  },
+  rewardsHeaderText: {
+    flex: 1,
+  },
+  rewardsTitle: {
+    fontSize: 20,
+    fontWeight: "700" as const,
+    color: "#1e293b",
+  },
+  rewardsSubtitle: {
+    fontSize: 14,
+    color: "#64748b",
+    marginTop: 2,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: "#f1f5f9",
+    borderRadius: 4,
+    overflow: "hidden" as const,
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#3b82f6",
+    borderRadius: 4,
+  },
+  progressText: {
+    fontSize: 12,
+    color: "#64748b",
+    textAlign: "center" as const,
+  },
+  badgesContainer: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+  },
+  badgesTitle: {
+    fontSize: 14,
+    fontWeight: "600" as const,
+    color: "#475569",
+    marginBottom: 12,
+  },
+  badgesList: {
+    flexDirection: "row" as const,
+  },
+  badge: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    backgroundColor: "#fef3c7",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginRight: 8,
+    gap: 6,
+  },
+  badgeName: {
+    fontSize: 12,
+    fontWeight: "600" as const,
+    color: "#92400e",
+  },
+  servicesCard: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  servicesIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: "#eff6ff",
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    marginRight: 12,
+  },
+  servicesContent: {
+    flex: 1,
+  },
+  servicesTitle: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    color: "#1e293b",
+    marginBottom: 4,
+  },
+  servicesSubtitle: {
+    fontSize: 13,
+    color: "#64748b",
   },
 });
